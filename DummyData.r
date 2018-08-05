@@ -32,7 +32,7 @@ write_dummy_data = function(metric.id, freq, target) {
 
 	#Add measure and created_at to dataframe
 	for (row in 1:total.periods) {
-		created.at <- ymd_hms(end.date-row*365/freq*86400) # days decimal-min
+		created.at <- end.date-row*365/freq*86400 # days decimal-min
 		metric.measures[row, "metric_id"] <- metric.id
 		metric.measures[row, "created_at"] <- created.at
 	}
@@ -42,18 +42,23 @@ write_dummy_data = function(metric.id, freq, target) {
 		
 	# Add measure vector to dataframe
 	metric.measures['measure'] <- measure
-		
+	
+	# DEBUG turn off writing to DB 
+	# print(metric.measures)
+
+	dbWriteTable(con, value = metric.measures, name = "metric_measures", append = TRUE ) 
+
 	# Remove dataframe object
 	rm(metric.measures)
 }
 
 #Get metrics to build based on flags[is_measured=TRUE AND is_dashboard_item=TRUE]
 metrics <- dbGetQuery(con, 
-	'SELECT id, measure_freq, target, ntol, ptol
+	'SELECT id, measure_freq, target, ntol, ptol, yearly_quantity
 	FROM metrics
-	WHERE is_measured IS TRUE
-	AND dash_board_item IS TRUE;')
+	WHERE is_measured IS TRUE;')
 
+	print(paste("Number of Records:", nrow(metrics)))
 	# DEBUG
 	# metrics
 
@@ -61,17 +66,21 @@ metrics <- dbGetQuery(con,
 # Itterate through metrics dataframe 
 for (row in 1:nrow(metrics)) {
 	
-	total.periods = year_periods(metrics[row, 'measure_freq']) * data.years
-	
+	if(metrics[row, 'measure_freq'] == 'Each') {
+		# Each is just a count
+		total.periods = metrics[row, 'yearly_quantity'] * data.years
+		freq = metrics[row, 'yearly_quantity']
+	} else {
+		# Calculate Time periods using year_periods
+		total.periods = year_periods(metrics[row, 'measure_freq']) * data.years
+		freq = year_periods(metrics[row, 'measure_freq'])
+	}
+
 	metric.id <- as.integer(metrics[row, 'id'])
-	freq <- year_periods(metrics[row, 'measure_freq'])
 	target <- metrics[row, 'target']
 	# To Add
 	# trend
 	# volitility (SD)
-	
-	# DEBUG
-	#	print(paste(id,'-',freq,'-',total_periods,'-',target))
 	
 	# Clear out chnaged metrics based on metric_id
 	# This will allow us to use flags to recreate only the ones we need to 
