@@ -6,6 +6,8 @@ library(scales)
 
 #Connect to database - .my.cnf has the group 6sigma for connection details
 con <- dbConnect(RMariaDB::MariaDB(), group='6sigma')
+app.dir = "/home/seans/GitHub/R-DummyData"
+setwd(app.dir)
 
 #Constants
 data.years = 1
@@ -38,7 +40,6 @@ data_with_variance = function(metric) {
   metric.id <- as.integer(metric[1, 'id'])
   target <- metric[1, 'target']
   
-  	
 	# Initialise DataFramemetric.measures
 	metric.measures <- data.frame(
 		metric_id = integer(),
@@ -60,14 +61,14 @@ data_with_variance = function(metric) {
 	return(metric.measures)
 }
 
-create_plot <- function(metric) {
-
-  
+create_plot = function(metric) {
+  plot <- ggplot(metric, aes(created_at, measure)) +
+    geom_line()
+  ggsave(paste("plots/metric_", metric[1, 'metric_id'], ".png"), width = 10, height = 5)
 }
 
-#-- MAIN --
-
-#Get metrics to build based on flags[is_measured=TRUE AND is_dashboard_item=TRUE]
+# -- MAIN --
+# Get metrics to build based on flags[is_measured=TRUE AND is_dashboard_item=TRUE]
 metrics <- dbGetQuery(con, 
 	'SELECT id, name, unit, measure_freq, target, ntol, ptol, yearly_quantity
 	FROM metrics
@@ -89,10 +90,10 @@ for (row in 1:nrow(metrics)) {
 	print(paste("Records Deleted: ", recs))
   
 	metric.data <- data_with_variance(metrics[row,])
-#	create.plot(metric.data)
+	create_plot(metric.data)
 #  print(metric.data)	
 	dbWriteTable(con, value = metric.data, name = "metric_measures", append = TRUE ) 
-
+	
 }
 
 
